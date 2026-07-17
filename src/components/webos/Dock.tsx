@@ -94,7 +94,7 @@ export function TopBar() {
           className="w-2 h-2 rounded-full"
           style={{ background: `linear-gradient(135deg, ${theme.accent}, ${theme.accent2})` }}
         />
-        <span>AnnaOS</span>
+        <span>Infinity OS</span>
         <span className="opacity-50">·</span>
         <span className="opacity-70">Desktop</span>
       </div>
