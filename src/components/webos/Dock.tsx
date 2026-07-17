@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FolderOpen, Settings2, Palette, Image as ImageIcon, Music, Wifi, WifiOff, Volume2, VolumeX, Battery } from "lucide-react";
+import { FolderOpen, Settings2, Palette, Image as ImageIcon, Music, TerminalSquare, Wifi, WifiOff, Volume2, VolumeX, Battery } from "lucide-react";
 import { useOS } from "./OSContext";
 import type { AppId } from "./types";
 
@@ -9,6 +9,7 @@ const APPS: { id: AppId; label: string; icon: React.ComponentType<{ className?: 
   { id: "themes", label: "Themes", icon: Palette },
   { id: "media", label: "Gallery", icon: ImageIcon },
   { id: "music", label: "Music", icon: Music },
+  { id: "terminal", label: "Terminal", icon: TerminalSquare },
 ];
 
 export function Dock() {
