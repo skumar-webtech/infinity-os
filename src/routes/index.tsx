@@ -1,24 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { OSProvider } from "@/components/webos/OSContext";
+import { Desktop } from "@/components/webos/Desktop";
 
-// No head() here: the home route inherits title/description/og/twitter from
-// __root.tsx, and ships no og:image so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "AnnaOS — Web Desktop Simulator" },
+      {
+        name: "description",
+        content:
+          "A gorgeous glassmorphic Web OS simulator with a draggable window manager, dock, file explorer, settings, and theme switcher.",
+      },
+      { property: "og:title", content: "AnnaOS — Web Desktop Simulator" },
+      {
+        property: "og:description",
+        content: "A premium glassmorphic desktop environment running in your browser.",
+      },
+    ],
+  }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
   return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+    <OSProvider>
+      <Desktop />
+    </OSProvider>
   );
 }
