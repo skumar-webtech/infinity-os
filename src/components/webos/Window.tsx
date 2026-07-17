@@ -3,9 +3,16 @@ import { X, Minus, Square } from "lucide-react";
 import { useOS } from "./OSContext";
 import type { WindowState } from "./types";
 
+const SPRING = "cubic-bezier(0.34, 1.56, 0.64, 1)";
+
 export function OSWindow({ win, children }: { win: WindowState; children: ReactNode }) {
   const { theme, focusWindow, closeWindow, toggleMinimize, toggleMaximize, updateWindow, activeId } = useOS();
   const active = activeId === win.id;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const r = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(r);
+  }, []);
   const dragRef = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; ow: number; oh: number } | null>(null);
   const [dragging, setDragging] = useState(false);
