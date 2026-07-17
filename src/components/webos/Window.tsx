@@ -47,11 +47,18 @@ export function OSWindow({ win, children }: { win: WindowState; children: ReactN
     };
   }, [win.id, updateWindow]);
 
-  if (win.minimized) return null;
+  const minimized = win.minimized;
 
   const style: React.CSSProperties = win.maximized
     ? { left: 0, top: 0, width: "100vw", height: "calc(100vh - 96px)" }
     : { left: win.x, top: win.y, width: win.w, height: win.h };
+
+  const transform = minimized
+    ? "scale(0.15) translateY(60vh)"
+    : mounted
+    ? "scale(1) translateY(0)"
+    : "scale(0.85) translateY(20px)";
+  const opacity = minimized ? 0 : mounted ? 1 : 0;
 
   return (
     <div
@@ -65,9 +72,16 @@ export function OSWindow({ win, children }: { win: WindowState; children: ReactN
         border: `1px solid ${theme.border}`,
         boxShadow: active ? theme.shadow : "0 8px 24px rgba(0,0,0,0.25)",
         color: theme.fg,
-        transition: dragging ? "none" : "box-shadow 0.2s, transform 0.15s",
+        transform,
+        opacity,
+        transformOrigin: "center bottom",
+        pointerEvents: minimized ? "none" : "auto",
+        transition: dragging
+          ? "none"
+          : `transform 0.45s ${SPRING}, opacity 0.3s ease, width 0.35s ${SPRING}, height 0.35s ${SPRING}, left 0.35s ${SPRING}, top 0.35s ${SPRING}, box-shadow 0.2s`,
       }}
     >
+
       <div
         onPointerDown={(e) => {
           if (win.maximized) return;
