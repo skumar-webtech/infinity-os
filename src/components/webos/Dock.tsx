@@ -39,11 +39,12 @@ export function Dock() {
             className="group relative flex flex-col items-center"
           >
             <div
-              className="w-12 h-12 rounded-xl grid place-items-center transition-all group-hover:-translate-y-1 group-hover:scale-110"
+              className="w-12 h-12 rounded-xl grid place-items-center transition-all duration-300 ease-out group-hover:-translate-y-2 group-hover:scale-125 group-hover:rotate-[-6deg] group-active:scale-110"
               style={{
                 background: `linear-gradient(135deg, ${theme.accent}55, ${theme.accent2}55)`,
                 border: `1px solid ${theme.border}`,
                 color: theme.fg,
+                boxShadow: isActive ? `0 8px 24px ${theme.accent}55` : undefined,
               }}
             >
               <Icon className="w-6 h-6" />
