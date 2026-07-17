@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FolderOpen, Settings2, Palette, Image as ImageIcon, Music, Wifi, WifiOff, Volume2, VolumeX, Battery } from "lucide-react";
+import { FolderOpen, Settings2, Palette, Image as ImageIcon, Music, TerminalSquare, Wifi, WifiOff, Volume2, VolumeX, Battery } from "lucide-react";
 import { useOS } from "./OSContext";
 import type { AppId } from "./types";
 
@@ -9,6 +9,7 @@ const APPS: { id: AppId; label: string; icon: React.ComponentType<{ className?: 
   { id: "themes", label: "Themes", icon: Palette },
   { id: "media", label: "Gallery", icon: ImageIcon },
   { id: "music", label: "Music", icon: Music },
+  { id: "terminal", label: "Terminal", icon: TerminalSquare },
 ];
 
 export function Dock() {
@@ -38,11 +39,12 @@ export function Dock() {
             className="group relative flex flex-col items-center"
           >
             <div
-              className="w-12 h-12 rounded-xl grid place-items-center transition-all group-hover:-translate-y-1 group-hover:scale-110"
+              className="w-12 h-12 rounded-xl grid place-items-center transition-all duration-300 ease-out group-hover:-translate-y-2 group-hover:scale-125 group-hover:rotate-[-6deg] group-active:scale-110"
               style={{
                 background: `linear-gradient(135deg, ${theme.accent}55, ${theme.accent2}55)`,
                 border: `1px solid ${theme.border}`,
                 color: theme.fg,
+                boxShadow: isActive ? `0 8px 24px ${theme.accent}55` : undefined,
               }}
             >
               <Icon className="w-6 h-6" />
@@ -92,7 +94,7 @@ export function TopBar() {
           className="w-2 h-2 rounded-full"
           style={{ background: `linear-gradient(135deg, ${theme.accent}, ${theme.accent2})` }}
         />
-        <span>AnnaOS</span>
+        <span>Infinity OS</span>
         <span className="opacity-50">·</span>
         <span className="opacity-70">Desktop</span>
       </div>

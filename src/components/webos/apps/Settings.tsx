@@ -57,11 +57,11 @@ export function Settings() {
               className="w-16 h-16 rounded-2xl grid place-items-center text-2xl font-bold"
               style={{ background: `linear-gradient(135deg, ${theme.accent}, ${theme.accent2})` }}
             >
-              A
+              ∞
             </div>
             <div>
-              <div className="text-xl font-semibold">AnnaOS v1.0</div>
-              <div className="text-sm opacity-60">Aurora Build 26.11 · Web Edition</div>
+              <div className="text-xl font-semibold">Infinity OS v1.0</div>
+              <div className="text-sm opacity-60">Nebula Build 26.11 · Web Edition</div>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4 pt-4">

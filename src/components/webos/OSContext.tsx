@@ -33,6 +33,7 @@ const APP_TITLES: Record<AppId, string> = {
   themes: "Personalization",
   media: "Gallery",
   music: "Music",
+  terminal: "Terminal",
 };
 
 let zCounter = 10;
