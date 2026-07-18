@@ -94,7 +94,7 @@ export function getNode(root: FSFolder, path: string): FSNode | null {
   let cur: FSNode = root;
   for (const seg of parts) {
     if (cur.type !== "folder") return null;
-    const next = cur.children[seg];
+    const next: FSNode | undefined = cur.children[seg];
     if (!next) return null;
     cur = next;
   }
