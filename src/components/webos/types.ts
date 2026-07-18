@@ -1,4 +1,12 @@
-export type AppId = "files" | "settings" | "themes" | "media" | "music" | "terminal";
+export type AppId =
+  | "files"
+  | "settings"
+  | "themes"
+  | "media"
+  | "music"
+  | "terminal"
+  | "textedit"
+  | "preview";
 
 export type ThemeId = "dark" | "light" | "cyberpunk" | "pastel";
 

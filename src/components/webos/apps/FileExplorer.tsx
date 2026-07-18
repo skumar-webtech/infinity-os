@@ -1,156 +1,270 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
-  Home,
+  ChevronLeft,
+  ChevronRight,
+  Folder,
   FileText,
   Image as ImageIcon,
   Music,
   Video,
-  Folder,
-  ChevronLeft,
   FileIcon,
-  Inbox,
+  Upload,
+  Trash2,
+  Star,
+  Home,
+  Download,
+  Camera,
 } from "lucide-react";
 import { useOS } from "../OSContext";
+import {
+  formatBytes,
+  getFolder,
+  kindFromName,
+  makeFile,
+  resolvePath,
+  type FSNode,
+} from "../vfs";
 
-type Node =
-  | { type: "folder"; name: string; children: Node[] }
-  | { type: "file"; name: string; kind: "image" | "audio" | "video" | "doc" };
-
-const FS: Record<string, Node[]> = {
-  Home: [
-    { type: "folder", name: "Documents", children: [] },
-    { type: "folder", name: "Images", children: [] },
-    { type: "folder", name: "Music", children: [] },
-    { type: "folder", name: "Videos", children: [] },
-    { type: "file", name: "readme.txt", kind: "doc" },
-  ],
-  Documents: [
-    { type: "file", name: "Resume.doc", kind: "doc" },
-    { type: "file", name: "Notes.txt", kind: "doc" },
-    { type: "folder", name: "Projects", children: [] },
-  ],
-  Images: [
-    { type: "file", name: "Sunset.jpg", kind: "image" },
-    { type: "file", name: "Mountains.jpg", kind: "image" },
-    { type: "file", name: "Ocean.jpg", kind: "image" },
-    { type: "file", name: "Forest.jpg", kind: "image" },
-  ],
-  Music: [
-    { type: "file", name: "Chill Beats.mp3", kind: "audio" },
-    { type: "file", name: "Lo-Fi Study.mp3", kind: "audio" },
-    { type: "file", name: "Synthwave Dreams.mp3", kind: "audio" },
-  ],
-  Videos: [
-    { type: "file", name: "Vacation.mp4", kind: "video" },
-    { type: "file", name: "Tutorial.mp4", kind: "video" },
-  ],
-  Projects: [{ type: "file", name: "Idea.txt", kind: "doc" }],
-};
-
-const SIDEBAR = [
-  { name: "Home", icon: Home },
-  { name: "Documents", icon: FileText },
-  { name: "Images", icon: ImageIcon },
-  { name: "Music", icon: Music },
-  { name: "Videos", icon: Video },
+const SIDEBAR: { label: string; path: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { label: "Home", path: "/Users/guest", icon: Home },
+  { label: "Desktop", path: "/Users/guest/Desktop", icon: Star },
+  { label: "Documents", path: "/Users/guest/Documents", icon: FileText },
+  { label: "Downloads", path: "/Users/guest/Downloads", icon: Download },
+  { label: "Pictures", path: "/Users/guest/Pictures", icon: Camera },
+  { label: "Music", path: "/Users/guest/Music", icon: Music },
 ];
 
-export function FileExplorer() {
-  const { theme, openApp } = useOS();
-  const [path, setPath] = useState<string[]>(["Home"]);
-  const current = path[path.length - 1];
-  const items = FS[current] || [];
+function iconFor(node: FSNode) {
+  if (node.type === "folder") return Folder;
+  const k = kindFromName(node.name);
+  if (k === "image") return ImageIcon;
+  if (k === "audio") return Music;
+  if (k === "video") return Video;
+  if (k === "text") return FileText;
+  return FileIcon;
+}
 
-  function open(node: Node) {
+export function FileExplorer() {
+  const { theme, fs, addFsNode, removeFsNode, openApp } = useOS();
+  const [stack, setStack] = useState<string[]>(["/Users/guest"]);
+  const [forward, setForward] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const current = stack[stack.length - 1];
+  const folder = getFolder(fs, current);
+  const items = folder ? Object.values(folder.children) : [];
+
+  function navigate(path: string) {
+    setStack((s) => [...s, path]);
+    setForward([]);
+    setSelected(null);
+  }
+  function back() {
+    if (stack.length <= 1) return;
+    setForward((f) => [stack[stack.length - 1], ...f]);
+    setStack((s) => s.slice(0, -1));
+    setSelected(null);
+  }
+  function fwd() {
+    if (!forward.length) return;
+    setStack((s) => [...s, forward[0]]);
+    setForward((f) => f.slice(1));
+    setSelected(null);
+  }
+
+  function open(node: FSNode) {
     if (node.type === "folder") {
-      setPath([...path, node.name]);
-    } else {
-      if (node.kind === "image" || node.kind === "video") openApp("media", { file: node.name });
-      else if (node.kind === "audio") openApp("music", { file: node.name });
-      else openApp("media", { file: node.name });
+      navigate(resolvePath(current, node.name));
+      return;
+    }
+    const k = kindFromName(node.name);
+    const path = resolvePath(current, node.name);
+    if (k === "image" || k === "video" || k === "audio") {
+      openApp("preview", { path }, node.name);
+    } else if (k === "text" || k === "other") {
+      openApp("textedit", { path }, node.name);
+    }
+  }
+
+  async function importFiles(files: FileList | File[]) {
+    const list = Array.from(files);
+    for (const file of list) {
+      const kind = kindFromName(file.name);
+      let content: string;
+      let mime = file.type || "application/octet-stream";
+      if (kind === "text" || (mime.startsWith("text/") && file.size < 2_000_000)) {
+        content = await file.text();
+      } else {
+        content = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result ?? ""));
+          reader.readAsDataURL(file);
+        });
+      }
+      addFsNode(current, makeFile(file.name, content, mime));
     }
   }
 
   return (
     <div className="flex h-full">
       <div
-        className="w-48 p-3 flex flex-col gap-1 text-sm"
+        className="w-52 p-3 flex flex-col gap-0.5 text-sm"
         style={{ background: theme.glass, borderRight: `1px solid ${theme.border}` }}
       >
-        <div className="text-xs uppercase opacity-50 px-2 pb-2">Favorites</div>
+        <div className="text-[10px] uppercase tracking-wider opacity-50 px-2 pb-2 pt-1">
+          Favorites
+        </div>
         {SIDEBAR.map((s) => {
           const Icon = s.icon;
-          const active = current === s.name;
+          const active = current === s.path;
           return (
             <button
-              key={s.name}
-              onClick={() => setPath([s.name])}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-left transition-colors"
+              key={s.path}
+              onClick={() => {
+                setStack([s.path]);
+                setForward([]);
+              }}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors text-[13px]"
               style={{
                 background: active ? theme.accent + "33" : "transparent",
                 color: active ? theme.accent : "inherit",
               }}
             >
-              <Icon className="w-4 h-4" />
-              {s.name}
+              <Icon className="w-3.5 h-3.5" />
+              {s.label}
             </button>
           );
         })}
       </div>
       <div className="flex-1 flex flex-col overflow-hidden">
         <div
-          className="h-10 flex items-center gap-2 px-3 text-sm"
+          className="h-11 flex items-center gap-2 px-3 text-sm"
           style={{ borderBottom: `1px solid ${theme.border}`, background: theme.glass }}
         >
           <button
-            disabled={path.length <= 1}
-            onClick={() => setPath(path.slice(0, -1))}
+            disabled={stack.length <= 1}
+            onClick={back}
             className="p-1 rounded-md disabled:opacity-30 hover:bg-white/10"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-          <div className="flex items-center gap-1 opacity-80">
-            {path.map((p, i) => (
+          <button
+            disabled={!forward.length}
+            onClick={fwd}
+            className="p-1 rounded-md disabled:opacity-30 hover:bg-white/10"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-1 opacity-80 text-xs">
+            {current.split("/").filter(Boolean).map((p, i, arr) => (
               <span key={i} className="flex items-center gap-1">
-                {i > 0 && <span className="opacity-40">/</span>}
-                <span className={i === path.length - 1 ? "font-medium" : "opacity-60"}>{p}</span>
+                <span className={i === arr.length - 1 ? "font-medium" : "opacity-60"}>{p}</span>
+                {i < arr.length - 1 && <span className="opacity-40">›</span>}
               </span>
             ))}
           </div>
+          <div className="ml-auto flex items-center gap-1">
+            {selected && (
+              <button
+                onClick={() => {
+                  removeFsNode(current, selected);
+                  setSelected(null);
+                }}
+                className="p-1.5 rounded-md hover:bg-red-500/20 text-red-400"
+                title="Delete"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={() => inputRef.current?.click()}
+              className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-white/10 text-xs"
+              title="Import files"
+            >
+              <Upload className="w-3.5 h-3.5" /> Import
+            </button>
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files) importFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </div>
         </div>
-        <div className="flex-1 overflow-auto p-6">
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            if (e.dataTransfer.files.length) importFiles(e.dataTransfer.files);
+          }}
+          className="flex-1 overflow-auto p-6 relative"
+          style={{
+            background: dragOver ? `${theme.accent}15` : "transparent",
+            transition: "background 0.2s",
+          }}
+        >
+          {dragOver && (
+            <div
+              className="absolute inset-3 rounded-xl grid place-items-center pointer-events-none text-sm"
+              style={{ border: `2px dashed ${theme.accent}`, color: theme.accent }}
+            >
+              Drop files to import into {current}
+            </div>
+          )}
           {items.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center opacity-50 gap-2">
-              <Inbox className="w-16 h-16" />
-              <div className="text-sm">This folder is empty</div>
+            <div className="h-full flex flex-col items-center justify-center opacity-50 gap-3">
+              <Upload className="w-12 h-12" />
+              <div className="text-sm">Empty folder — drag files here to import</div>
             </div>
           ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-3">
               {items.map((n) => {
-                const Icon =
-                  n.type === "folder"
-                    ? Folder
-                    : n.kind === "image"
-                      ? ImageIcon
-                      : n.kind === "audio"
-                        ? Music
-                        : n.kind === "video"
-                          ? Video
-                          : FileIcon;
+                const Icon = iconFor(n);
+                const isSel = selected === n.name;
+                const isImg = n.type === "file" && kindFromName(n.name) === "image";
                 return (
                   <button
                     key={n.name}
                     onDoubleClick={() => open(n)}
-                    onClick={(e) => {
-                      if (e.detail === 2) return;
-                    }}
-                    className="flex flex-col items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-colors group"
+                    onClick={() => setSelected(n.name)}
+                    className="flex flex-col items-center gap-1.5 p-2 rounded-lg transition-colors group"
+                    style={{ background: isSel ? theme.accent + "22" : "transparent" }}
                   >
-                    <Icon
-                      className="w-12 h-12 transition-transform group-hover:scale-110"
-                      style={{ color: n.type === "folder" ? theme.accent : theme.accent2 }}
-                    />
-                    <div className="text-xs text-center break-all line-clamp-2">{n.name}</div>
+                    <div
+                      className="w-16 h-16 rounded-lg grid place-items-center transition-transform group-hover:scale-105"
+                      style={{
+                        background:
+                          isImg && n.type === "file"
+                            ? `center / cover no-repeat url(${n.content})`
+                            : "transparent",
+                      }}
+                    >
+                      {!isImg && (
+                        <Icon
+                          className="w-12 h-12"
+                          style={{
+                            color: n.type === "folder" ? theme.accent : theme.accent2,
+                          }}
+                        />
+                      )}
+                    </div>
+                    <div className="text-[11px] text-center break-all line-clamp-2 max-w-[92px]">
+                      {n.name}
+                    </div>
+                    {n.type === "file" && (
+                      <div className="text-[10px] opacity-50">{formatBytes(n.size)}</div>
+                    )}
                   </button>
                 );
               })}

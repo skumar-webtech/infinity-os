@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useOS } from "../OSContext";
 import type { ThemeId } from "../types";
-
-const MOCK_FS: Record<string, string> = {
-  "readme.txt": "Welcome to Infinity OS!\nA gorgeous glassmorphic Web OS simulator.\nTry: help, neofetch, ls, cat readme.txt, theme cyberpunk",
-  "notes.md": "# Notes\n- Ship it\n- Add more apps\n- Enjoy the vibes",
-  "secret.txt": "The cake is a lie. 🍰",
-};
+import {
+  getFolder,
+  getNode,
+  makeFolder,
+  resolvePath,
+} from "../vfs";
 
 const NEOFETCH_ASCII = `      ██╗███╗   ██╗███████╗██╗███╗   ██╗██╗████████╗██╗   ██╗
       ██║████╗  ██║██╔════╝██║████╗  ██║██║╚══██╔══╝╚██╗ ██╔╝
@@ -21,7 +21,6 @@ interface Line {
 }
 
 const BOOT_TIME = Date.now();
-
 function fmtUptime() {
   const s = Math.floor((Date.now() - BOOT_TIME) / 1000);
   const m = Math.floor(s / 60);
@@ -30,9 +29,10 @@ function fmtUptime() {
 }
 
 export function TerminalApp() {
-  const { theme, setTheme } = useOS();
+  const { theme, setTheme, fs, addFsNode } = useOS();
+  const [cwd, setCwd] = useState("/Users/guest");
   const [lines, setLines] = useState<Line[]>([
-    { kind: "out", text: "Infinity OS Terminal v1.0 — type 'help' to get started." },
+    { kind: "out", text: "Infinity OS Terminal v2.0 — type 'help' to get started." },
   ]);
   const [input, setInput] = useState("");
   const [history, setHistory] = useState<string[]>([]);
@@ -48,9 +48,13 @@ export function TerminalApp() {
     setLines((prev) => [...prev, ...ls]);
   }
 
+  function prompt() {
+    return `guest@infinity ${cwd} $`;
+  }
+
   function run(raw: string) {
     const cmd = raw.trim();
-    push({ kind: "in", text: `guest@infinity ~ $ ${cmd}` });
+    push({ kind: "in", text: `${prompt()} ${cmd}` });
     if (!cmd) return;
     const [name, ...args] = cmd.split(/\s+/);
     switch (name) {
@@ -58,29 +62,86 @@ export function TerminalApp() {
         push({
           kind: "out",
           text:
-            "Available commands:\n" +
-            "  help              Show this help\n" +
-            "  clear             Clear the screen\n" +
-            "  neofetch          Show system info with logo\n" +
-            "  ls                List files\n" +
-            "  cat <file>        Show file contents\n" +
-            "  theme <name>      Switch theme (dark|light|cyberpunk|pastel)\n" +
-            "  echo <text>       Print text\n" +
-            "  whoami            Print current user\n" +
-            "  date              Show current date/time",
+            "Commands:\n" +
+            "  help                Show this help\n" +
+            "  clear               Clear the screen\n" +
+            "  neofetch            System info with logo\n" +
+            "  pwd                 Print working directory\n" +
+            "  ls [path]           List directory\n" +
+            "  cd <path>           Change directory\n" +
+            "  cat <file>          Print file contents\n" +
+            "  mkdir <name>        Create folder\n" +
+            "  touch <name>        Create empty file\n" +
+            "  theme <name>        Switch theme (dark|light|cyberpunk|pastel)\n" +
+            "  echo <text>         Print text\n" +
+            "  whoami | date       Info",
         });
         break;
       case "clear":
         setLines([]);
         break;
-      case "ls":
-        push({ kind: "out", text: Object.keys(MOCK_FS).join("   ") });
+      case "pwd":
+        push({ kind: "out", text: cwd });
         break;
+      case "ls": {
+        const target = args[0] ? resolvePath(cwd, args[0]) : cwd;
+        const folder = getFolder(fs, target);
+        if (!folder) {
+          push({ kind: "err", text: `ls: ${target}: No such directory` });
+          break;
+        }
+        const entries = Object.values(folder.children)
+          .map((c) => (c.type === "folder" ? `\x1b[b${c.name}/` : c.name))
+          .join("   ");
+        push({ kind: "out", text: entries || "(empty)" });
+        break;
+      }
+      case "cd": {
+        if (!args[0]) {
+          setCwd("/Users/guest");
+          break;
+        }
+        const target = resolvePath(cwd, args[0]);
+        const folder = getFolder(fs, target);
+        if (!folder) push({ kind: "err", text: `cd: ${target}: Not a directory` });
+        else setCwd(target);
+        break;
+      }
       case "cat": {
-        const f = args[0];
-        if (!f) push({ kind: "err", text: "cat: missing file operand" });
-        else if (MOCK_FS[f]) push({ kind: "out", text: MOCK_FS[f] });
-        else push({ kind: "err", text: `cat: ${f}: No such file or directory` });
+        if (!args[0]) {
+          push({ kind: "err", text: "cat: missing operand" });
+          break;
+        }
+        const target = resolvePath(cwd, args[0]);
+        const node = getNode(fs, target);
+        if (!node) push({ kind: "err", text: `cat: ${target}: No such file` });
+        else if (node.type !== "file") push({ kind: "err", text: `cat: ${target}: Is a directory` });
+        else if (node.mime.startsWith("text/") || node.mime === "application/octet-stream")
+          push({ kind: "out", text: node.content });
+        else push({ kind: "out", text: `[binary file: ${node.mime}]` });
+        break;
+      }
+      case "mkdir": {
+        if (!args[0]) {
+          push({ kind: "err", text: "mkdir: missing operand" });
+          break;
+        }
+        addFsNode(cwd, makeFolder(args[0]));
+        break;
+      }
+      case "touch": {
+        if (!args[0]) {
+          push({ kind: "err", text: "touch: missing operand" });
+          break;
+        }
+        addFsNode(cwd, {
+          type: "file",
+          name: args[0],
+          mime: "text/plain",
+          content: "",
+          size: 0,
+          modified: Date.now(),
+        });
         break;
       }
       case "theme": {
@@ -110,13 +171,14 @@ export function TerminalApp() {
             text:
               `\nguest@infinity\n` +
               `--------------\n` +
-              `OS:       Infinity OS 1.0 (Web Edition)\n` +
+              `OS:       Infinity OS 2.0 (Web Edition)\n` +
               `Kernel:   Nebula 6.2.0-infinity\n` +
               `Uptime:   ${fmtUptime()}\n` +
-              `Shell:    infysh 1.0\n` +
+              `Shell:    infysh 2.0\n` +
               `Resolution: ${window.innerWidth}x${window.innerHeight}\n` +
               `DE:       Infinity Desktop\n` +
               `Theme:    ${theme.name}\n` +
+              `CWD:      ${cwd}\n` +
               `CPU:      Quantum Core i∞ @ 8.88GHz\n` +
               `Memory:   4096MiB / 16384MiB`,
           },
@@ -160,7 +222,7 @@ export function TerminalApp() {
   return (
     <div
       className="h-full w-full flex flex-col font-mono text-[13px]"
-      style={{ background: "rgba(5,8,15,0.85)", color: "#e2e8f0" }}
+      style={{ background: "rgba(5,8,15,0.9)", color: "#e2e8f0" }}
       onClick={() => inputRef.current?.focus()}
     >
       <div ref={scrollRef} className="flex-1 overflow-auto p-4 leading-relaxed">
@@ -184,7 +246,7 @@ export function TerminalApp() {
         ))}
         <div className="flex items-center gap-2">
           <span style={{ color: green }}>guest@infinity</span>
-          <span style={{ color: "#94a3b8" }}>~</span>
+          <span style={{ color: "#94a3b8" }}>{cwd}</span>
           <span style={{ color: cyan }}>$</span>
           <input
             ref={inputRef}
