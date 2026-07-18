@@ -92,39 +92,49 @@ export function OSWindow({ win, children }: { win: WindowState; children: ReactN
         className="h-10 flex items-center px-3 gap-2 cursor-grab active:cursor-grabbing"
         style={{ borderBottom: `1px solid ${theme.border}`, background: theme.glass }}
       >
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pl-1">
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => closeWindow(win.id)}
-            className="w-3.5 h-3.5 rounded-full grid place-items-center group"
-            style={{ background: "#ef4444" }}
+            className="w-3 h-3 rounded-full grid place-items-center group transition-transform hover:scale-110"
+            style={{
+              background: "linear-gradient(180deg, #ff6058, #d64541)",
+              boxShadow: "inset 0 0 0 0.5px rgba(0,0,0,0.3)",
+            }}
             aria-label="Close"
           >
-            <X className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-black/70" />
+            <X className="w-2 h-2 opacity-0 group-hover:opacity-90" style={{ color: "#4c0000" }} strokeWidth={3} />
           </button>
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => toggleMinimize(win.id)}
-            className="w-3.5 h-3.5 rounded-full grid place-items-center group"
-            style={{ background: "#f59e0b" }}
+            className="w-3 h-3 rounded-full grid place-items-center group transition-transform hover:scale-110"
+            style={{
+              background: "linear-gradient(180deg, #ffbd2e, #dea123)",
+              boxShadow: "inset 0 0 0 0.5px rgba(0,0,0,0.3)",
+            }}
             aria-label="Minimize"
           >
-            <Minus className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-black/70" />
+            <Minus className="w-2 h-2 opacity-0 group-hover:opacity-90" style={{ color: "#5c3800" }} strokeWidth={3} />
           </button>
           <button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => toggleMaximize(win.id)}
-            className="w-3.5 h-3.5 rounded-full grid place-items-center group"
-            style={{ background: "#10b981" }}
+            className="w-3 h-3 rounded-full grid place-items-center group transition-transform hover:scale-110"
+            style={{
+              background: "linear-gradient(180deg, #28c941, #1aa334)",
+              boxShadow: "inset 0 0 0 0.5px rgba(0,0,0,0.3)",
+            }}
             aria-label="Maximize"
           >
-            <Square className="w-2 h-2 opacity-0 group-hover:opacity-100 text-black/70" />
+            <Square className="w-1.5 h-1.5 opacity-0 group-hover:opacity-90" style={{ color: "#003d0a" }} strokeWidth={3} />
           </button>
         </div>
-        <div className="flex-1 text-center text-xs font-medium tracking-wide opacity-80">
+        <div className="flex-1 text-center text-[13px] font-semibold tracking-tight opacity-90 truncate px-2">
           {win.title}
         </div>
         <div className="w-16" />
+
       </div>
       <div className="flex-1 overflow-hidden relative">{children}</div>
       {!win.maximized && (
