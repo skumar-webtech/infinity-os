@@ -11,7 +11,7 @@ import {
   VolumeX,
   Battery,
   Search,
-  ChevronRight,
+  
 } from "lucide-react";
 import { useOS } from "./OSContext";
 import type { AppId, ThemeId } from "./types";
@@ -354,8 +354,6 @@ function ClockPopover({ now }: { now: Date }) {
     </div>
   );
 }
-
-const APPS: { id: AppId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [];
 
 // Dock is now driven by Desktop-provided icon set for consistency.
 export function Dock({
