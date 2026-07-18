@@ -1,10 +1,31 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { THEMES } from "./themes";
 import type { AppId, ThemeId, WindowState } from "./types";
+import {
+  addChild,
+  loadFS,
+  removeChild,
+  saveFS,
+  updateFileContent,
+  type FSFolder,
+  type FSNode,
+} from "./vfs";
 
 interface SystemState {
   volume: number;
+  brightness: number;
   wifi: boolean;
+  bluetooth: boolean;
+  airdrop: boolean;
+  focus: boolean;
   notifications: boolean;
   battery: number;
 }
@@ -14,26 +35,33 @@ interface OSContextValue {
   themeId: ThemeId;
   setTheme: (id: ThemeId) => void;
   windows: WindowState[];
-  openApp: (appId: AppId, props?: Record<string, unknown>) => void;
+  openApp: (appId: AppId, props?: Record<string, unknown>, title?: string) => void;
   closeWindow: (id: string) => void;
   focusWindow: (id: string) => void;
   toggleMinimize: (id: string) => void;
   toggleMaximize: (id: string) => void;
   updateWindow: (id: string, patch: Partial<WindowState>) => void;
   activeId: string | null;
+  activeWindow: WindowState | null;
   system: SystemState;
   setSystem: (patch: Partial<SystemState>) => void;
+  fs: FSFolder;
+  addFsNode: (parentPath: string, node: FSNode) => void;
+  removeFsNode: (parentPath: string, name: string) => void;
+  writeFsFile: (path: string, content: string) => void;
 }
 
 const OSContext = createContext<OSContextValue | null>(null);
 
 const APP_TITLES: Record<AppId, string> = {
   files: "Finder",
-  settings: "System Settings",
-  themes: "Personalization",
-  media: "Gallery",
+  settings: "About This Mac",
+  themes: "Appearance",
+  media: "Preview",
   music: "Music",
   terminal: "Terminal",
+  textedit: "TextEdit",
+  preview: "Preview",
 };
 
 let zCounter = 10;
@@ -45,44 +73,55 @@ export function OSProvider({ children }: { children: ReactNode }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [system, setSystemState] = useState<SystemState>({
     volume: 65,
+    brightness: 80,
     wifi: true,
+    bluetooth: true,
+    airdrop: false,
+    focus: false,
     notifications: true,
     battery: 87,
   });
+  const [fs, setFs] = useState<FSFolder>(() => loadFS());
 
-  const openApp = useCallback((appId: AppId, props?: Record<string, unknown>) => {
-    setWindows((prev) => {
-      // If already open, just focus & unminimize
-      const existing = prev.find((w) => w.appId === appId && !props);
-      if (existing) {
+  useEffect(() => {
+    saveFS(fs);
+  }, [fs]);
+
+  const openApp = useCallback(
+    (appId: AppId, props?: Record<string, unknown>, title?: string) => {
+      setWindows((prev) => {
+        const existing = prev.find((w) => w.appId === appId && !props);
+        if (existing) {
+          zCounter += 1;
+          setActiveId(existing.id);
+          return prev.map((w) =>
+            w.id === existing.id ? { ...w, minimized: false, z: zCounter } : w,
+          );
+        }
+        idCounter += 1;
         zCounter += 1;
-        setActiveId(existing.id);
-        return prev.map((w) =>
-          w.id === existing.id ? { ...w, minimized: false, z: zCounter } : w,
-        );
-      }
-      idCounter += 1;
-      zCounter += 1;
-      const id = `w-${idCounter}`;
-      const w = Math.min(900, window.innerWidth - 120);
-      const h = Math.min(600, window.innerHeight - 180);
-      const win: WindowState = {
-        id,
-        appId,
-        title: APP_TITLES[appId],
-        x: 80 + ((idCounter * 30) % 200),
-        y: 60 + ((idCounter * 30) % 120),
-        w,
-        h,
-        z: zCounter,
-        minimized: false,
-        maximized: false,
-        props,
-      };
-      setActiveId(id);
-      return [...prev, win];
-    });
-  }, []);
+        const id = `w-${idCounter}`;
+        const w = Math.min(920, window.innerWidth - 120);
+        const h = Math.min(620, window.innerHeight - 180);
+        const win: WindowState = {
+          id,
+          appId,
+          title: title ?? APP_TITLES[appId],
+          x: 90 + ((idCounter * 30) % 220),
+          y: 70 + ((idCounter * 30) % 140),
+          w,
+          h,
+          z: zCounter,
+          minimized: false,
+          maximized: false,
+          props,
+        };
+        setActiveId(id);
+        return [...prev, win];
+      });
+    },
+    [],
+  );
 
   const closeWindow = useCallback((id: string) => {
     setWindows((prev) => prev.filter((w) => w.id !== id));
@@ -91,7 +130,9 @@ export function OSProvider({ children }: { children: ReactNode }) {
   const focusWindow = useCallback((id: string) => {
     zCounter += 1;
     setActiveId(id);
-    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, z: zCounter, minimized: false } : w)));
+    setWindows((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, z: zCounter, minimized: false } : w)),
+    );
   }, []);
 
   const toggleMinimize = useCallback((id: string) => {
@@ -110,6 +151,21 @@ export function OSProvider({ children }: { children: ReactNode }) {
     setSystemState((s) => ({ ...s, ...patch }));
   }, []);
 
+  const addFsNode = useCallback((parentPath: string, node: FSNode) => {
+    setFs((prev) => addChild(prev, parentPath, node));
+  }, []);
+  const removeFsNode = useCallback((parentPath: string, name: string) => {
+    setFs((prev) => removeChild(prev, parentPath, name));
+  }, []);
+  const writeFsFile = useCallback((path: string, content: string) => {
+    setFs((prev) => updateFileContent(prev, path, content));
+  }, []);
+
+  const activeWindow = useMemo(
+    () => windows.find((w) => w.id === activeId) ?? null,
+    [windows, activeId],
+  );
+
   const value = useMemo<OSContextValue>(
     () => ({
       theme: THEMES[themeId],
@@ -123,10 +179,32 @@ export function OSProvider({ children }: { children: ReactNode }) {
       toggleMaximize,
       updateWindow,
       activeId,
+      activeWindow,
       system,
       setSystem,
+      fs,
+      addFsNode,
+      removeFsNode,
+      writeFsFile,
     }),
-    [themeId, windows, activeId, system, openApp, closeWindow, focusWindow, toggleMinimize, toggleMaximize, updateWindow, setSystem],
+    [
+      themeId,
+      windows,
+      activeId,
+      activeWindow,
+      system,
+      fs,
+      openApp,
+      closeWindow,
+      focusWindow,
+      toggleMinimize,
+      toggleMaximize,
+      updateWindow,
+      setSystem,
+      addFsNode,
+      removeFsNode,
+      writeFsFile,
+    ],
   );
 
   return <OSContext.Provider value={value}>{children}</OSContext.Provider>;
