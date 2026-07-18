@@ -372,7 +372,7 @@ export function Dock({
         boxShadow: `0 25px 50px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)`,
       }}
     >
-      {(items.length ? items : APPS).map((a) => {
+      {items.map((a) => {
         const Icon = a.icon;
         const openWin = windows.find((w) => w.appId === a.id);
         const isActive = openWin && activeId === openWin.id && !openWin.minimized;
