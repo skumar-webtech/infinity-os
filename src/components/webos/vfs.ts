@@ -120,7 +120,7 @@ export function resolvePath(cwd: string, target: string): string {
 
 // Mutating helpers return a fresh clone so React state updates cleanly.
 function clone(root: FSFolder): FSFolder {
-  return JSON.parse(JSON.stringify(root));
+  return JSON.parse(JSON.stringify(root)) as FSFolder;
 }
 
 export function addChild(root: FSFolder, parentPath: string, node: FSNode): FSFolder {
