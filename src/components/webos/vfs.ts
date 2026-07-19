@@ -1,8 +1,10 @@
 // Virtual File System with localStorage persistence.
+// Internal paths use POSIX form with a Windows-style drive prefix so we can
+// present them as `file:///C:/Users/Saurabh/...` in the UI.
 export type FSFile = {
   type: "file";
   name: string;
-  mime: string; // e.g. text/plain, image/png
+  mime: string;
   content: string; // text or data URL for binary
   size: number;
   modified: number;
@@ -16,7 +18,8 @@ export type FSFolder = {
 
 export type FSNode = FSFile | FSFolder;
 
-export const VFS_KEY = "infinity-os.vfs.v1";
+export const VFS_KEY = "infinity-os.vfs.v3";
+export const HOME_PATH = "/C:/Users/Saurabh";
 
 export function makeFolder(name: string, children: Record<string, FSNode> = {}): FSFolder {
   return { type: "folder", name, children };
@@ -34,28 +37,37 @@ export function makeFile(name: string, content: string, mime = "text/plain"): FS
 
 export function defaultFS(): FSFolder {
   return makeFolder("/", {
-    Users: makeFolder("Users", {
-      guest: makeFolder("guest", {
-        Desktop: makeFolder("Desktop", {
-          "welcome.txt": makeFile(
-            "welcome.txt",
-            "Welcome to Infinity OS!\n\nDrag files into Finder to import them.\nDouble-click a .txt to open TextEdit, or an image to open Preview.\n\nTry the Terminal — it speaks to this same file system.",
-          ),
+    "C:": makeFolder("C:", {
+      Users: makeFolder("Users", {
+        Saurabh: makeFolder("Saurabh", {
+          Desktop: makeFolder("Desktop", {
+            "welcome.txt": makeFile(
+              "welcome.txt",
+              "Welcome to Infinity OS!\n\nDrag files into Finder to import them.\nDouble-click a .txt to open TextEdit, an image or PDF to open Preview,\nor an .mp4 to open the Media Player.\n\nTry the Terminal — it speaks the same file system.",
+            ),
+            "sample.pdf": makeFile(
+              "sample.pdf",
+              "Infinity OS — Simulated PDF\n\nPage 1\nThis is a rendered PDF preview inside Infinity OS. Scroll to see more pages.\n\nPage 2\nSupport for images, PDFs, videos and plain text is bundled with the Preview app.\n\nPage 3\nThat's all folks — swap this with a real PDF via drag & drop.",
+              "application/pdf",
+            ),
+          }),
+          Documents: makeFolder("Documents", {
+            "readme.md": makeFile(
+              "readme.md",
+              "# Infinity OS\n\n- Virtual file system rooted at C:\\Users\\Saurabh\n- TextEdit + Preview (PDF, image, video)\n- Terminal with cd/ls/cat/mkdir/pwd",
+              "text/markdown",
+            ),
+            "notes.txt": makeFile("notes.txt", "Ship it.\nAdd more apps.\nEnjoy the vibes."),
+          }),
+          Downloads: makeFolder("Downloads", {}),
+          Music: makeFolder("Music", {}),
+          Videos: makeFolder("Videos", {}),
+          Pictures: makeFolder("Pictures", {}),
         }),
-        Documents: makeFolder("Documents", {
-          "readme.md": makeFile(
-            "readme.md",
-            "# Infinity OS\n\n- Virtual file system\n- TextEdit + Preview\n- Terminal with cd/ls/cat/mkdir/pwd",
-            "text/markdown",
-          ),
-          "notes.txt": makeFile("notes.txt", "Ship it.\nAdd more apps.\nEnjoy the vibes."),
-        }),
-        Downloads: makeFolder("Downloads", {}),
-        Pictures: makeFolder("Pictures", {}),
-        Music: makeFolder("Music", {}),
       }),
+      "Program Files": makeFolder("Program Files", {}),
+      Windows: makeFolder("Windows", {}),
     }),
-    Applications: makeFolder("Applications", {}),
   });
 }
 
@@ -81,7 +93,6 @@ export function saveFS(root: FSFolder) {
   }
 }
 
-// Path helpers — paths are POSIX-like, e.g. "/Users/guest/Documents".
 export function splitPath(p: string): string[] {
   return p.split("/").filter(Boolean);
 }
@@ -108,17 +119,38 @@ export function getFolder(root: FSFolder, path: string): FSFolder | null {
 
 export function resolvePath(cwd: string, target: string): string {
   if (!target) return cwd;
-  const startParts = target.startsWith("/") ? [] : splitPath(cwd);
+  // Accept file:// URLs and Windows-style paths in commands too.
+  let t = target.replace(/^file:\/\//, "");
+  if (/^[a-zA-Z]:[\\/]/.test(t)) {
+    t = "/" + t.replace(/\\/g, "/");
+  }
+  const startParts = t.startsWith("/") ? [] : splitPath(cwd);
   const parts = [...startParts];
-  for (const seg of splitPath(target)) {
-    if (seg === ".") continue;
+  for (const seg of splitPath(t)) {
+    if (seg === "." || seg === "") continue;
     if (seg === "..") parts.pop();
-    else parts.push(seg);
+    else if (seg === "~") {
+      parts.length = 0;
+      parts.push(...splitPath(HOME_PATH));
+    } else parts.push(seg);
   }
   return joinPath(parts);
 }
 
-// Mutating helpers return a fresh clone so React state updates cleanly.
+/** `/C:/Users/Saurabh/Documents` → `file:///C:/Users/Saurabh/Documents/` */
+export function toDisplayPath(p: string): string {
+  const clean = p === "/" ? "" : p.replace(/\/+$/, "");
+  return `file://${clean}/`;
+}
+/** `file:///C:/Users/Saurabh/Documents/` → `/C:/Users/Saurabh/Documents` */
+export function fromDisplayPath(s: string): string {
+  let p = s.trim().replace(/^file:\/\//i, "");
+  p = p.replace(/\\/g, "/");
+  if (/^[a-zA-Z]:\//.test(p)) p = "/" + p;
+  p = p.replace(/\/+$/, "");
+  return p || "/";
+}
+
 function clone(root: FSFolder): FSFolder {
   return JSON.parse(JSON.stringify(root)) as FSFolder;
 }
@@ -165,11 +197,12 @@ export function totalSize(node: FSNode): number {
   return Object.values(node.children).reduce((s, c) => s + totalSize(c), 0);
 }
 
-export function kindFromName(name: string): "image" | "audio" | "video" | "text" | "other" {
+export function kindFromName(name: string): "image" | "audio" | "video" | "text" | "pdf" | "other" {
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
   if (["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"].includes(ext)) return "image";
   if (["mp3", "wav", "ogg", "m4a", "flac"].includes(ext)) return "audio";
   if (["mp4", "mov", "webm", "avi", "mkv"].includes(ext)) return "video";
+  if (ext === "pdf") return "pdf";
   if (["txt", "md", "json", "js", "ts", "tsx", "css", "html", "log", "csv"].includes(ext))
     return "text";
   return "other";
