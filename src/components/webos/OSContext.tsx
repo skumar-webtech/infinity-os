@@ -28,6 +28,8 @@ interface SystemState {
   focus: boolean;
   notifications: boolean;
   battery: number;
+  charging: boolean;
+  batterySupported: boolean;
 }
 
 interface OSContextValue {
@@ -67,6 +69,17 @@ const APP_TITLES: Record<AppId, string> = {
 let zCounter = 10;
 let idCounter = 0;
 
+// Battery API surface (not in all lib.dom versions).
+interface BatteryLike {
+  level: number;
+  charging: boolean;
+  addEventListener: (t: string, cb: () => void) => void;
+  removeEventListener: (t: string, cb: () => void) => void;
+}
+interface NavigatorWithBattery extends Navigator {
+  getBattery?: () => Promise<BatteryLike>;
+}
+
 export function OSProvider({ children }: { children: ReactNode }) {
   const [themeId, setThemeId] = useState<ThemeId>("dark");
   const [windows, setWindows] = useState<WindowState[]>([]);
@@ -79,13 +92,57 @@ export function OSProvider({ children }: { children: ReactNode }) {
     airdrop: false,
     focus: false,
     notifications: true,
-    battery: 87,
+    battery: 100,
+    charging: false,
+    batterySupported: false,
   });
   const [fs, setFs] = useState<FSFolder>(() => loadFS());
 
   useEffect(() => {
     saveFS(fs);
   }, [fs]);
+
+  // Sync initial appearance with the host OS via prefers-color-scheme.
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mm = window.matchMedia("(prefers-color-scheme: dark)");
+    setThemeId(mm.matches ? "dark" : "light");
+    const onChange = (e: MediaQueryListEvent) => setThemeId(e.matches ? "dark" : "light");
+    mm.addEventListener?.("change", onChange);
+    return () => mm.removeEventListener?.("change", onChange);
+  }, []);
+
+  // Live battery via the Web Battery Status API.
+  useEffect(() => {
+    if (typeof navigator === "undefined") return;
+    const nav = navigator as NavigatorWithBattery;
+    if (!nav.getBattery) return;
+    let battery: BatteryLike | null = null;
+    let cancelled = false;
+    const apply = () => {
+      if (!battery) return;
+      setSystemState((s) => ({
+        ...s,
+        battery: Math.round(battery!.level * 100),
+        charging: battery!.charging,
+        batterySupported: true,
+      }));
+    };
+    nav.getBattery().then((b) => {
+      if (cancelled) return;
+      battery = b;
+      apply();
+      b.addEventListener("levelchange", apply);
+      b.addEventListener("chargingchange", apply);
+    });
+    return () => {
+      cancelled = true;
+      if (battery) {
+        battery.removeEventListener("levelchange", apply);
+        battery.removeEventListener("chargingchange", apply);
+      }
+    };
+  }, []);
 
   const openApp = useCallback(
     (appId: AppId, props?: Record<string, unknown>, title?: string) => {

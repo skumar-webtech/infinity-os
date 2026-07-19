@@ -1,18 +1,24 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { X, Minus, Square } from "lucide-react";
 import { useOS } from "./OSContext";
+import { getDockPosition } from "./dockPositions";
 import type { WindowState } from "./types";
 
 const SPRING = "cubic-bezier(0.34, 1.56, 0.64, 1)";
+const MENU_H = 28; // top menu bar height
+const DOCK_H = 88; // reserved dock area
 
 export function OSWindow({ win, children }: { win: WindowState; children: ReactNode }) {
   const { theme, focusWindow, closeWindow, toggleMinimize, toggleMaximize, updateWindow, activeId } = useOS();
   const active = activeId === win.id;
   const [mounted, setMounted] = useState(false);
+  const [closing, setClosing] = useState(false);
+
   useEffect(() => {
     const r = requestAnimationFrame(() => setMounted(true));
     return () => cancelAnimationFrame(r);
   }, []);
+
   const dragRef = useRef<{ startX: number; startY: number; ox: number; oy: number } | null>(null);
   const resizeRef = useRef<{ startX: number; startY: number; ow: number; oh: number } | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -23,7 +29,7 @@ export function OSWindow({ win, children }: { win: WindowState; children: ReactN
         const d = dragRef.current;
         updateWindow(win.id, {
           x: Math.max(0, d.ox + e.clientX - d.startX),
-          y: Math.max(0, d.oy + e.clientY - d.startY),
+          y: Math.max(MENU_H, d.oy + e.clientY - d.startY),
         });
       }
       if (resizeRef.current) {
@@ -49,16 +55,32 @@ export function OSWindow({ win, children }: { win: WindowState; children: ReactN
 
   const minimized = win.minimized;
 
+  // Fullscreen leaves room for the top menu bar so traffic-lights stay visible.
   const style: React.CSSProperties = win.maximized
-    ? { left: 0, top: 0, width: "100vw", height: "calc(100vh - 96px)" }
+    ? {
+        left: 0,
+        top: MENU_H,
+        width: "100vw",
+        height: `calc(100vh - ${MENU_H}px - ${DOCK_H}px)`,
+      }
     : { left: win.x, top: win.y, width: win.w, height: win.h };
 
-  const transform = minimized
-    ? "scale(0.15) translateY(60vh)"
-    : mounted
-    ? "scale(1) translateY(0)"
-    : "scale(0.85) translateY(20px)";
-  const opacity = minimized ? 0 : mounted ? 1 : 0;
+  // Compute genie transform toward the dock icon slot for this app.
+  const dock = getDockPosition(win.appId);
+  const centerX = (win.maximized ? window.innerWidth / 2 : win.x + win.w / 2);
+  const centerY = (win.maximized ? window.innerHeight / 2 : win.y + win.h / 2);
+  const dx = dock.cx - centerX;
+  const dy = dock.cy - centerY;
+  const genie = `translate(${dx}px, ${dy}px) scale(0.05)`;
+
+  const hidden = minimized || closing || !mounted;
+  const transform = hidden ? genie : "translate(0,0) scale(1)";
+  const opacity = hidden ? 0 : 1;
+
+  function handleClose() {
+    setClosing(true);
+    window.setTimeout(() => closeWindow(win.id), 320);
+  }
 
   return (
     <div
@@ -74,14 +96,13 @@ export function OSWindow({ win, children }: { win: WindowState; children: ReactN
         color: theme.fg,
         transform,
         opacity,
-        transformOrigin: "center bottom",
-        pointerEvents: minimized ? "none" : "auto",
+        transformOrigin: "center center",
+        pointerEvents: hidden ? "none" : "auto",
         transition: dragging
           ? "none"
-          : `transform 0.45s ${SPRING}, opacity 0.3s ease, width 0.35s ${SPRING}, height 0.35s ${SPRING}, left 0.35s ${SPRING}, top 0.35s ${SPRING}, box-shadow 0.2s`,
+          : `transform 0.42s ${SPRING}, opacity 0.28s ease, width 0.32s ${SPRING}, height 0.32s ${SPRING}, left 0.32s ${SPRING}, top 0.32s ${SPRING}, box-shadow 0.2s`,
       }}
     >
-
       <div
         onPointerDown={(e) => {
           if (win.maximized) return;
@@ -89,13 +110,13 @@ export function OSWindow({ win, children }: { win: WindowState; children: ReactN
           setDragging(true);
         }}
         onDoubleClick={() => toggleMaximize(win.id)}
-        className="h-10 flex items-center px-3 gap-2 cursor-grab active:cursor-grabbing"
+        className="h-10 flex items-center px-3 gap-2 cursor-grab active:cursor-grabbing shrink-0"
         style={{ borderBottom: `1px solid ${theme.border}`, background: theme.glass }}
       >
         <div className="flex items-center gap-2 pl-1">
           <button
             onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => closeWindow(win.id)}
+            onClick={handleClose}
             className="w-3 h-3 rounded-full grid place-items-center group transition-transform hover:scale-110"
             style={{
               background: "linear-gradient(180deg, #ff6058, #d64541)",
@@ -134,7 +155,6 @@ export function OSWindow({ win, children }: { win: WindowState; children: ReactN
           {win.title}
         </div>
         <div className="w-16" />
-
       </div>
       <div className="flex-1 overflow-hidden relative">{children}</div>
       {!win.maximized && (
