@@ -4,6 +4,10 @@ A gorgeous, highly interactive web-based Operating System (Web OS) simulator sty
 
 ---
 
+## Preview
+
+![Image Preview](/public/preview.png)
+
 ## ✨ Features
 
 ### 🍏 Premium macOS-Inspired UI/UX

@@ -57,7 +57,7 @@ const OSContext = createContext<OSContextValue | null>(null);
 
 const APP_TITLES: Record<AppId, string> = {
   files: "Finder",
-  settings: "About This Mac",
+  settings: "About This OS",
   themes: "Appearance",
   media: "Preview",
   music: "Music",

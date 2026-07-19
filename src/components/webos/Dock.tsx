@@ -18,7 +18,7 @@ import { dockPositions } from "./dockPositions";
 import type { AppId, ThemeId } from "./types";
 
 const APPLE_MENU: { label: string; action?: string; separator?: boolean }[] = [
-  { label: "About This Mac", action: "about" },
+  { label: "About This OS", action: "about" },
   { label: "System Settings…", action: "settings" },
   { label: "sep", separator: true },
   { label: "Sleep", action: "sleep" },
