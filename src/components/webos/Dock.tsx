@@ -143,10 +143,13 @@ export function TopBar() {
 
 function StatusIcons() {
   const { system } = useOS();
+  const Icon = system.charging ? BatteryCharging : Battery;
   return (
     <div className="flex items-center gap-2 opacity-90">
-      <Battery className="w-3.5 h-3.5" />
-      <span className="text-[11px]">{system.battery}%</span>
+      <Icon className="w-3.5 h-3.5" />
+      <span className="text-[11px]">
+        {system.battery}%{system.charging ? " ⚡" : ""}
+      </span>
       {system.wifi ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
       <Search className="w-3.5 h-3.5" />
     </div>
