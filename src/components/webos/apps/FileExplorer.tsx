@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -18,20 +18,24 @@ import {
 import { useOS } from "../OSContext";
 import {
   formatBytes,
+  fromDisplayPath,
   getFolder,
+  HOME_PATH,
   kindFromName,
   makeFile,
   resolvePath,
+  toDisplayPath,
   type FSNode,
 } from "../vfs";
 
 const SIDEBAR: { label: string; path: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { label: "Home", path: "/Users/guest", icon: Home },
-  { label: "Desktop", path: "/Users/guest/Desktop", icon: Star },
-  { label: "Documents", path: "/Users/guest/Documents", icon: FileText },
-  { label: "Downloads", path: "/Users/guest/Downloads", icon: Download },
-  { label: "Pictures", path: "/Users/guest/Pictures", icon: Camera },
-  { label: "Music", path: "/Users/guest/Music", icon: Music },
+  { label: "Saurabh", path: HOME_PATH, icon: Home },
+  { label: "Desktop", path: `${HOME_PATH}/Desktop`, icon: Star },
+  { label: "Documents", path: `${HOME_PATH}/Documents`, icon: FileText },
+  { label: "Downloads", path: `${HOME_PATH}/Downloads`, icon: Download },
+  { label: "Pictures", path: `${HOME_PATH}/Pictures`, icon: Camera },
+  { label: "Music", path: `${HOME_PATH}/Music`, icon: Music },
+  { label: "Videos", path: `${HOME_PATH}/Videos`, icon: Video },
 ];
 
 function iconFor(node: FSNode) {
@@ -46,7 +50,7 @@ function iconFor(node: FSNode) {
 
 export function FileExplorer() {
   const { theme, fs, addFsNode, removeFsNode, openApp } = useOS();
-  const [stack, setStack] = useState<string[]>(["/Users/guest"]);
+  const [stack, setStack] = useState<string[]>([HOME_PATH]);
   const [forward, setForward] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -55,6 +59,10 @@ export function FileExplorer() {
   const current = stack[stack.length - 1];
   const folder = getFolder(fs, current);
   const items = folder ? Object.values(folder.children) : [];
+
+  const [pathInput, setPathInput] = useState(toDisplayPath(current));
+  useEffect(() => setPathInput(toDisplayPath(current)), [current]);
+
 
   function navigate(path: string) {
     setStack((s) => [...s, path]);
