@@ -165,14 +165,32 @@ export function FileExplorer() {
           >
             <ChevronRight className="w-4 h-4" />
           </button>
-          <div className="flex items-center gap-1 opacity-80 text-xs">
-            {current.split("/").filter(Boolean).map((p, i, arr) => (
-              <span key={i} className="flex items-center gap-1">
-                <span className={i === arr.length - 1 ? "font-medium" : "opacity-60"}>{p}</span>
-                {i < arr.length - 1 && <span className="opacity-40">›</span>}
-              </span>
-            ))}
-          </div>
+          <input
+            value={pathInput}
+            onChange={(e) => setPathInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                const target = fromDisplayPath(pathInput);
+                if (getFolder(fs, target)) {
+                  setStack((s) => [...s, target]);
+                  setForward([]);
+                } else {
+                  // reset on invalid
+                  setPathInput(toDisplayPath(current));
+                }
+              } else if (e.key === "Escape") {
+                setPathInput(toDisplayPath(current));
+              }
+            }}
+            onBlur={() => setPathInput(toDisplayPath(current))}
+            spellCheck={false}
+            className="flex-1 min-w-0 text-xs font-mono px-2 py-1 rounded-md outline-none"
+            style={{
+              background: theme.glassStrong,
+              border: `1px solid ${theme.border}`,
+              color: theme.fg,
+            }}
+          />
           <div className="ml-auto flex items-center gap-1">
             {selected && (
               <button
