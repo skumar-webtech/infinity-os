@@ -30,7 +30,7 @@ function fmtUptime() {
 
 export function TerminalApp() {
   const { theme, setTheme, fs, addFsNode } = useOS();
-  const [cwd, setCwd] = useState("/Users/guest");
+  const [cwd, setCwd] = useState("/C:/Users/Saurabh");
   const [lines, setLines] = useState<Line[]>([
     { kind: "out", text: "Infinity OS Terminal v2.0 — type 'help' to get started." },
   ]);
@@ -49,7 +49,7 @@ export function TerminalApp() {
   }
 
   function prompt() {
-    return `guest@infinity ${cwd} $`;
+    return `saurabh@infinity ${cwd} $`;
   }
 
   function run(raw: string) {
@@ -98,7 +98,7 @@ export function TerminalApp() {
       }
       case "cd": {
         if (!args[0]) {
-          setCwd("/Users/guest");
+          setCwd("/C:/Users/Saurabh");
           break;
         }
         const target = resolvePath(cwd, args[0]);
@@ -158,7 +158,7 @@ export function TerminalApp() {
         push({ kind: "out", text: args.join(" ") });
         break;
       case "whoami":
-        push({ kind: "out", text: "guest" });
+        push({ kind: "out", text: "Saurabh" });
         break;
       case "date":
         push({ kind: "out", text: new Date().toString() });
@@ -169,7 +169,7 @@ export function TerminalApp() {
           {
             kind: "out",
             text:
-              `\nguest@infinity\n` +
+              `\nsaurabh@infinity\n` +
               `--------------\n` +
               `OS:       Infinity OS 2.0 (Web Edition)\n` +
               `Kernel:   Nebula 6.2.0-infinity\n` +
@@ -245,7 +245,7 @@ export function TerminalApp() {
           </pre>
         ))}
         <div className="flex items-center gap-2">
-          <span style={{ color: green }}>guest@infinity</span>
+          <span style={{ color: green }}>saurabh@infinity</span>
           <span style={{ color: "#94a3b8" }}>{cwd}</span>
           <span style={{ color: cyan }}>$</span>
           <input
