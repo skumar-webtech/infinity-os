@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Wifi,
   WifiOff,
@@ -10,10 +10,11 @@ import {
   Volume1,
   VolumeX,
   Battery,
+  BatteryCharging,
   Search,
-  
 } from "lucide-react";
 import { useOS } from "./OSContext";
+import { dockPositions } from "./dockPositions";
 import type { AppId, ThemeId } from "./types";
 
 const APPLE_MENU: { label: string; action?: string; separator?: boolean }[] = [
