@@ -365,7 +365,7 @@ export function Dock({
 }: {
   items: { id: AppId; label: string; icon: React.ComponentType<{ className?: string }> }[];
 }) {
-  const { theme, openApp, windows, focusWindow, activeId } = useOS();
+  const { theme } = useOS();
   return (
     <div
       className="fixed left-1/2 -translate-x-1/2 bottom-3 z-[9999] flex items-end gap-1.5 px-3 pt-2 pb-1.5 rounded-2xl"
@@ -376,60 +376,70 @@ export function Dock({
         boxShadow: `0 25px 50px -12px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.15)`,
       }}
     >
-      {items.map((a) => {
-        const Icon = a.icon;
-        const openWin = windows.find((w) => w.appId === a.id);
-        const isActive = openWin && activeId === openWin.id && !openWin.minimized;
-        const btnRef = useRef<HTMLButtonElement>(null);
-        useLayoutEffect(() => {
-          function measure() {
-            const el = btnRef.current;
-            if (!el) return;
-            const r = el.getBoundingClientRect();
-            dockPositions.set(a.id, { cx: r.left + r.width / 2, cy: r.top + r.height / 2 });
-          }
-          measure();
-          window.addEventListener("resize", measure);
-          return () => window.removeEventListener("resize", measure);
-        }, [a.id]);
-        return (
-          <button
-            key={a.id}
-            ref={btnRef}
-            title={a.label}
-            onClick={() => {
-              if (openWin) focusWindow(openWin.id);
-              else openApp(a.id);
-            }}
-            className="group relative flex flex-col items-center"
-          >
-            <div
-              className="absolute -top-9 opacity-0 group-hover:opacity-100 text-[11px] px-2 py-1 rounded-md whitespace-nowrap transition-opacity pointer-events-none"
-              style={{
-                background: theme.glassStrong,
-                border: `1px solid ${theme.border}`,
-                color: theme.fg,
-              }}
-            >
-              {a.label}
-            </div>
-            <div
-              className="w-12 h-12 rounded-xl grid place-items-center transition-all duration-200 ease-out group-hover:-translate-y-3 group-hover:scale-125 group-active:scale-110 origin-bottom"
-              style={{
-                background: `linear-gradient(135deg, ${theme.accent}, ${theme.accent2})`,
-                boxShadow: `0 6px 16px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.3)`,
-                color: "#fff",
-              }}
-            >
-              <Icon className="w-6 h-6 drop-shadow" />
-            </div>
-            <div
-              className="w-1 h-1 rounded-full mt-0.5 transition-opacity"
-              style={{ background: theme.fg, opacity: openWin ? 1 : 0 }}
-            />
-          </button>
-        );
-      })}
+      {items.map((a) => (
+        <DockButton key={a.id} id={a.id} label={a.label} Icon={a.icon} />
+      ))}
     </div>
+  );
+}
+
+function DockButton({
+  id,
+  label,
+  Icon,
+}: {
+  id: AppId;
+  label: string;
+  Icon: React.ComponentType<{ className?: string }>;
+}) {
+  const { theme, openApp, windows, focusWindow } = useOS();
+  const openWin = windows.find((w) => w.appId === id);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  useLayoutEffect(() => {
+    function measure() {
+      const el = btnRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      dockPositions.set(id, { cx: r.left + r.width / 2, cy: r.top + r.height / 2 });
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [id]);
+  return (
+    <button
+      ref={btnRef}
+      title={label}
+      onClick={() => {
+        if (openWin) focusWindow(openWin.id);
+        else openApp(id);
+      }}
+      className="group relative flex flex-col items-center"
+    >
+      <div
+        className="absolute -top-9 opacity-0 group-hover:opacity-100 text-[11px] px-2 py-1 rounded-md whitespace-nowrap transition-opacity pointer-events-none"
+        style={{
+          background: theme.glassStrong,
+          border: `1px solid ${theme.border}`,
+          color: theme.fg,
+        }}
+      >
+        {label}
+      </div>
+      <div
+        className="w-12 h-12 rounded-xl grid place-items-center transition-all duration-200 ease-out group-hover:-translate-y-3 group-hover:scale-125 group-active:scale-110 origin-bottom"
+        style={{
+          background: `linear-gradient(135deg, ${theme.accent}, ${theme.accent2})`,
+          boxShadow: `0 6px 16px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.3)`,
+          color: "#fff",
+        }}
+      >
+        <Icon className="w-6 h-6 drop-shadow" />
+      </div>
+      <div
+        className="w-1 h-1 rounded-full mt-0.5 transition-opacity"
+        style={{ background: theme.fg, opacity: openWin ? 1 : 0 }}
+      />
+    </button>
   );
 }
