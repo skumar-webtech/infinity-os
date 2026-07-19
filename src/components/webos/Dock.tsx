@@ -380,9 +380,22 @@ export function Dock({
         const Icon = a.icon;
         const openWin = windows.find((w) => w.appId === a.id);
         const isActive = openWin && activeId === openWin.id && !openWin.minimized;
+        const btnRef = useRef<HTMLButtonElement>(null);
+        useLayoutEffect(() => {
+          function measure() {
+            const el = btnRef.current;
+            if (!el) return;
+            const r = el.getBoundingClientRect();
+            dockPositions.set(a.id, { cx: r.left + r.width / 2, cy: r.top + r.height / 2 });
+          }
+          measure();
+          window.addEventListener("resize", measure);
+          return () => window.removeEventListener("resize", measure);
+        }, [a.id]);
         return (
           <button
             key={a.id}
+            ref={btnRef}
             title={a.label}
             onClick={() => {
               if (openWin) focusWindow(openWin.id);
